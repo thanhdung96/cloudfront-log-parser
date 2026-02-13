@@ -260,6 +260,7 @@ func parseALBLogFile(reader io.Reader) ([]ALBLog, error) {
 				TargetStatusCode:       parseInt(parts[9]),
 				ReceivedBytes:          parseInt64(parts[10]),
 				SentBytes:              parseInt64(parts[11]),
+				Request:                parts[12],
 				UserAgent:              parts[13],
 				SSLCipher:              parts[14],
 				SSLProtocol:            parts[15],
