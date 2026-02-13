@@ -29,6 +29,10 @@ type ALBLog struct {
 	ReceivedBytes          int64
 	SentBytes              int64
 	Request                string
+	Method                 string
+	Path                   string
+	Query                  string
+	Protocol               string
 	UserAgent              string
 	SSLCipher              string
 	SSLProtocol            string
@@ -128,6 +132,10 @@ func createTable(db *sql.DB) {
 		received_bytes INTEGER,
 		sent_bytes INTEGER,
 		request TEXT,
+		method TEXT,
+		path TEXT,
+		query TEXT,
+		protocol TEXT,
 		user_agent TEXT,
 		ssl_cipher TEXT,
 		ssl_protocol TEXT,
@@ -272,6 +280,8 @@ func parseALBLogFile(reader io.Reader) ([]ALBLog, error) {
 				RequestCreationTime:    parts[21],
 			}
 
+			log.Method, log.Path, log.Query, log.Protocol = parseRequest(parts[12])
+
 			if len(parts) > 22 {
 				log.WafAction = parts[22]
 			}
@@ -352,11 +362,11 @@ func insertLogs(db *sql.DB, logs []ALBLog) error {
 			type, timestamp, elb, client_ip, client_port, target_ip, target_port,
 			request_processing_time, target_processing_time, response_processing_time,
 			elb_status_code, target_status_code, received_bytes, sent_bytes,
-			request, user_agent, ssl_cipher, ssl_protocol, target_group_arn,
+			request, method, path, query, protocol, user_agent, ssl_cipher, ssl_protocol, target_group_arn,
 			trace_id, domain_name, cert_arn, matched_rule_priority, request_creation_time,
 			waf_action, waf_response_code, waf_match_status, target_port_list,
 			target_status_code_list, actions_executed, rule_name, conn_trace_id
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return err
@@ -368,7 +378,7 @@ func insertLogs(db *sql.DB, logs []ALBLog) error {
 			log.Type, log.Timestamp, log.ELB, log.ClientIP, log.ClientPort,
 			log.TargetIP, log.TargetPort, log.RequestProcessingTime, log.TargetProcessingTime,
 			log.ResponseProcessingTime, log.ELBStatusCode, log.TargetStatusCode,
-			log.ReceivedBytes, log.SentBytes, log.Request, log.UserAgent,
+			log.ReceivedBytes, log.SentBytes, log.Request, log.Method, log.Path, log.Query, log.Protocol, log.UserAgent,
 			log.SSLCipher, log.SSLProtocol, log.TargetGroupArn, log.TraceID,
 			log.DomainName, log.CertArn, log.MatchedRulePriority, log.RequestCreationTime,
 			log.WafAction, log.WafResponseCode, log.WafMatchStatus, log.TargetPortList,
@@ -407,4 +417,30 @@ func parseFloat(s string) float64 {
 	var result float64
 	fmt.Sscanf(s, "%f", &result)
 	return result
+}
+
+func parseRequest(request string) (method, path, query, protocol string) {
+	parts := strings.SplitN(request, " ", 3)
+	if len(parts) >= 1 {
+		method = parts[0]
+	}
+	if len(parts) >= 2 {
+		urlPart := parts[1]
+		if idx := strings.Index(urlPart, "://"); idx != -1 {
+			urlPart = urlPart[idx+3:]
+		}
+		if idx := strings.Index(urlPart, "/"); idx != -1 {
+			urlPart = urlPart[idx:]
+			if qidx := strings.Index(urlPart, "?"); qidx != -1 {
+				path = urlPart[:qidx]
+				query = urlPart[qidx+1:]
+			} else {
+				path = urlPart
+			}
+		}
+	}
+	if len(parts) >= 3 {
+		protocol = parts[2]
+	}
+	return
 }
