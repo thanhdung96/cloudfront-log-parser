@@ -1,0 +1,6 @@
+# the db
+cloudfront_logs.db
+
+# the binary itself
+cloudfront-log-parser
+cloudfront-log-parser.exe
