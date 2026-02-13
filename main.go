@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -425,18 +426,10 @@ func parseRequest(request string) (method, path, query, protocol string) {
 		method = parts[0]
 	}
 	if len(parts) >= 2 {
-		urlPart := parts[1]
-		if idx := strings.Index(urlPart, "://"); idx != -1 {
-			urlPart = urlPart[idx+3:]
-		}
-		if idx := strings.Index(urlPart, "/"); idx != -1 {
-			urlPart = urlPart[idx:]
-			if qidx := strings.Index(urlPart, "?"); qidx != -1 {
-				path = urlPart[:qidx]
-				query = urlPart[qidx+1:]
-			} else {
-				path = urlPart
-			}
+		parsedURL, err := url.Parse(parts[1])
+		if err == nil {
+			path = parsedURL.Path
+			query = parsedURL.RawQuery
 		}
 	}
 	if len(parts) >= 3 {
